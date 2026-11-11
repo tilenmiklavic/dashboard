@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import http from 'node:http';
-import { db } from './db.ts';
+import { db, kvGet, kvSet, now } from './db.ts';
 
 export interface AppConfig {
   /** Display name, also the docker compose project name (the netcup convention: one project per app). */
@@ -30,10 +30,34 @@ async function check(app: AppConfig) {
     /* timeout / DNS / TLS: counts as down */
   }
   const ms = Math.round(performance.now() - t0);
-  db.prepare('INSERT INTO checks (ts, app, ok, code, ms) VALUES (?,?,?,?,?)').run(Math.floor(Date.now() / 1000), app.name, ok, code, ms);
+  const ts = now();
+  db.prepare('INSERT INTO checks (ts, app, ok, code, ms) VALUES (?,?,?,?,?)').run(ts, app.name, ok, code, ms);
+  recordIncident(app.name, ts, ok, code);
+}
+
+// --- Downtime incidents -----------------------------------------------------------------------------------------------
+// An incident starts at the first failed check and ends at the next successful one (an upper bound: the app came back
+// somewhere between the last failed and that successful check).
+function recordIncident(app: string, ts: number, ok: number, code: number) {
+  const open = db.prepare('SELECT id FROM incidents WHERE app = ? AND end IS NULL').get(app) as { id: number } | undefined;
+  if (!ok && !open) db.prepare('INSERT INTO incidents (app, start, end, code, checks) VALUES (?, ?, NULL, ?, 1)').run(app, ts, code);
+  else if (!ok && open) db.prepare('UPDATE incidents SET checks = checks + 1, code = ? WHERE id = ?').run(code, open.id);
+  else if (ok && open) db.prepare('UPDATE incidents SET end = ? WHERE id = ?').run(ts, open.id);
+}
+
+/** Builds incidents from the stored checks once, for the history collected before incidents existed. */
+export function backfillIncidents() {
+  if (kvGet('incidents_backfilled')) return;
+  const rows = db.prepare('SELECT ts, app, ok, code FROM checks ORDER BY app, ts').all() as { ts: number; app: string; ok: number; code: number }[];
+  db.exec('BEGIN');
+  db.exec('DELETE FROM incidents');
+  for (const r of rows) recordIncident(r.app, r.ts, r.ok, r.code);
+  kvSet('incidents_backfilled', String(now()));
+  db.exec('COMMIT');
 }
 
 export function startChecks() {
+  backfillIncidents();
   const run = () => Promise.allSettled(apps.map(check));
   run();
   setInterval(run, CHECK_INTERVAL_MS).unref();
@@ -82,6 +106,9 @@ function dockerGet<T>(path: string): Promise<T> {
 }
 
 export interface ContainerInfo {
+  id: string;
+  created: number;
+  service: string;
   name: string;
   project: string;
   image: string;
@@ -95,6 +122,9 @@ export async function containers(): Promise<{ available: boolean; list: Containe
     return {
       available: true,
       list: raw.map((c) => ({
+        id: String(c.Id),
+        created: Number(c.Created),
+        service: c.Labels?.['com.docker.compose.service'] ?? '',
         name: String(c.Names?.[0] ?? '').replace(/^\//, ''),
         project: c.Labels?.['com.docker.compose.project'] ?? '',
         image: c.Image,

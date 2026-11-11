@@ -29,3 +29,19 @@ export function timeLabel(ts: number, spanSeconds: number): string {
     ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
+export function dateTime(ts: number | null | undefined): string {
+  if (ts == null) return '—';
+  return new Date(ts * 1000).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+/** Like duration(), but down to seconds for short outages. */
+export function span(seconds: number): string {
+  return seconds < 60 ? `${Math.max(0, Math.round(seconds))}s` : duration(seconds);
+}
+
+export function ago(ts: number | null | undefined): string {
+  if (ts == null) return '—';
+  const s = Date.now() / 1000 - ts;
+  return s < 60 ? 'just now' : `${span(s)} ago`;
+}
