@@ -43,5 +43,6 @@ jobs:
       - run: bash deploy/deploy.sh
         env:
           DEPLOY_HOST: ${{ vars.NETCUP_USER || 'dashboard' }}@${{ vars.NETCUP_HOST }}
+      # / is behind basic auth (401); /healthz is the one open endpoint.
       - name: Smoke test
-        run: curl -fsS --retry 10 --retry-delay 5 --retry-all-errors -o /dev/null https://dashboard.miklavic.si/
+        run: curl -fsS --retry 10 --retry-delay 5 --retry-all-errors -o /dev/null https://dashboard.miklavic.si/healthz
