@@ -1,0 +1,6 @@
+{
+  "apps": [
+    { "name": "klindom", "url": "https://klindom.miklavic.si" },
+    { "name": "vodja", "url": "https://vodja.miklavic.si" }
+  ]
+}

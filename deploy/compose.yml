@@ -1,0 +1,36 @@
+# dashboard on the netcup server: runs from /opt/dashboard, where deploy.sh puts this file next to src/ (the repo source).
+# Secrets come from /opt/dashboard/.env (written by hand on the server, never synced). HTTPS is done by the shared
+# proxy, which reaches the `app` service as dashboard-web:3000 on the `proxy` network (route: site.caddy).
+name: dashboard
+
+services:
+  app:
+    build: ./src
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      PORT: "3000"
+      HOST_ROOT: /host/root              # host filesystem, for disk usage
+      HOST_PROC: /host/root/proc         # host /proc, for host network counters
+    volumes:
+      - data:/app/data                   # SQLite history (30 days)
+      - type: bind                       # the host's root, read-only: disk usage and host /proc
+        source: /
+        target: /host/root
+        read_only: true
+        bind: { propagation: rslave }
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # container state for the Apps page (GET requests only)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz || exit 1"]
+      interval: 10s
+      retries: 6
+    networks:
+      default: {}
+      proxy: { aliases: [dashboard-web] }
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  data:
