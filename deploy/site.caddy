@@ -1,0 +1,5 @@
+# dashboard's route in the shared proxy. deploy.sh installs it as /opt/proxy/sites/dashboard.caddy and reloads the proxy,
+# which then gets the HTTPS certificate itself. dashboard-web is the app's HTTP container on the `proxy` network.
+dashboard.miklavic.si {
+	reverse_proxy dashboard-web:3000
+}
