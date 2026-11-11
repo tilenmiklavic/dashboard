@@ -3,6 +3,9 @@ import { Chip, Select, Sidebar } from './ds.ts';
 import { usePoll, type Overview as OverviewData } from './api.ts';
 import { Overview } from './pages/Overview.tsx';
 import { Apps } from './pages/Apps.tsx';
+import { Deploys } from './pages/Deploys.tsx';
+import { Downtime } from './pages/Downtime.tsx';
+import { Logs } from './pages/Logs.tsx';
 
 const RANGES = [
   { value: '1h', label: 'Last hour' },
@@ -14,6 +17,9 @@ const RANGES = [
 const PAGES = [
   { path: '/', label: 'Overview', icon: 'home' },
   { path: '/apps', label: 'Apps', icon: 'layers' },
+  { path: '/downtime', label: 'Downtime', icon: 'activity' },
+  { path: '/deploys', label: 'Deploys', icon: 'undo' },
+  { path: '/logs', label: 'Logs', icon: 'list' },
 ];
 
 function useRoute() {
@@ -54,7 +60,11 @@ export function App() {
           )}
         </header>
         {error && !data && <p className="muted">Could not load data ({error}).</p>}
-        {data && (page.path === '/' ? <Overview data={data} range={range} /> : <Apps data={data} />)}
+        {data && page.path === '/' && <Overview data={data} range={range} />}
+        {data && page.path === '/apps' && <Apps data={data} />}
+        {page.path === '/downtime' && <Downtime />}
+        {page.path === '/deploys' && <Deploys />}
+        {page.path === '/logs' && <Logs />}
       </main>
     </div>
   );

@@ -29,10 +29,13 @@ Same convention as every app on the server: user `dashboard`, folder `/opt/dashb
 
 ## What the container can see
 
-`compose.yml` mounts the host's root filesystem read-only (disk usage and host network counters) and the Docker socket
-(container state on the Apps page; the code only issues `GET` requests). The socket gives root-equivalent access to
+`compose.yml` mounts the host's root filesystem read-only and the Docker socket. From the root mount it reads disk usage,
+host network counters, the systemd journal (`sshd` messages, for the Logs tab), every `authorized_keys` file (to name
+the key behind each login) and `/opt/*/releases` (static-site deploys, for the Deploys tab). The Docker socket gives
+container state for the Apps page and container rebuilds for the Deploys tab (the code only issues `GET` requests). It gives root-equivalent access to
 the host if the app were ever compromised, so keep a strong `DASHBOARD_PASSWORD`. If you would rather not expose it,
-delete that volume line: everything else keeps working and the Apps page just hides container details.
+delete that volume line: everything else keeps working, the Apps page hides container details and the Deploys tab
+only sees static-site releases.
 
 ## Adding an app to the dashboard
 

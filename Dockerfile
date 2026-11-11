@@ -5,7 +5,11 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:24-alpine
+# Debian 13 (trixie), the same release as the server, so its journalctl reads the host's journal files (SSH logs).
+FROM node:24-trixie-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends systemd \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
