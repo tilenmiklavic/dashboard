@@ -2,7 +2,9 @@
   "name": "dashboard",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.18" },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "tokens": "node scripts/build-tokens.mjs",
     "dev:web": "npm run tokens && vite",
@@ -12,7 +14,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
-    "hono": "^4.6.14"
+    "hono": "^4.6.14",
+    "maxmind": "^5.0.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -37,6 +37,12 @@ the host if the app were ever compromised, so keep a strong `DASHBOARD_PASSWORD`
 delete that volume line: everything else keeps working, the Apps page hides container details and the Deploys tab
 only sees static-site releases.
 
+## IP locations
+
+The Logs tab shows an approximate location for each IP from DB-IP's free "IP to City Lite" database (CC BY 4.0). The
+dashboard downloads it from `download.db-ip.com` into its data volume on first start and refreshes it monthly; lookups
+happen on the server, so no IP is sent anywhere. The database is held in memory (roughly 100+ MB).
+
 ## Adding an app to the dashboard
 
 Edit `apps.config.json` (`name` must equal the app's compose project name, which is its folder name in `/opt`) and

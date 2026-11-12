@@ -7,6 +7,7 @@ import { apps, appStatus, containers, startChecks } from './apps.ts';
 import { startCollector, hostInfo, latestSample, series, RANGES } from './collector.ts';
 import { db, now, prune } from './db.ts';
 import { startDeploys } from './deploys.ts';
+import { geoSource, locate, startGeo } from './geo.ts';
 import { keyNames, sshSource, startSsh } from './ssh.ts';
 
 const password = process.env.DASHBOARD_PASSWORD;
@@ -57,11 +58,20 @@ app.get('/api/ssh', (c) => {
     .all(week) as { users: string | null }[];
   return c.json({
     source: sshSource,
-    logins: logins.map((l) => ({ ...l, keyName: (l.fingerprint && names.get(l.fingerprint)) || null })),
+    geo: geoSource,
+    logins: (logins as { ip: string; fingerprint: string | null }[]).map((l) => ({
+      ...l,
+      keyName: (l.fingerprint && names.get(l.fingerprint)) || null,
+      location: locate(l.ip),
+    })),
     logins24h: count("SELECT COUNT(*) AS n FROM ssh_events WHERE kind = 'login' AND ts >= ?", day),
     failed24h: count("SELECT COUNT(*) AS n FROM ssh_events WHERE kind = 'failed' AND ts >= ?", day),
     failedIps24h: count("SELECT COUNT(DISTINCT ip) AS n FROM ssh_events WHERE kind = 'failed' AND ts >= ?", day),
-    topFailed: topFailed.map((r) => ({ ...r, users: (r.users ?? '').split(',').filter(Boolean) })),
+    topFailed: (topFailed as { ip: string; users: string | null }[]).map((r) => ({
+      ...r,
+      users: (r.users ?? '').split(',').filter(Boolean),
+      location: locate(r.ip),
+    })),
   });
 });
 
@@ -106,6 +116,7 @@ if (fs.existsSync(webRoot)) {
 startCollector();
 startChecks();
 startSsh();
+startGeo();
 startDeploys();
 prune();
 setInterval(prune, 6 * 3600_000).unref();

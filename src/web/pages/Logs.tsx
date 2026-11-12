@@ -2,10 +2,11 @@ import { Card, DataTable, StatCard } from '../ds.ts';
 import { usePoll } from '../api.ts';
 import { ago, dateTime } from '../format.ts';
 
-interface Login { ts: number; user: string; ip: string; method: string; keyType: string | null; fingerprint: string | null; keyName: string | null }
-interface Failed { ip: string; attempts: number; last: number; users: string[] }
+interface Login { ts: number; user: string; ip: string; method: string; keyType: string | null; fingerprint: string | null; keyName: string | null; location: string | null }
+interface Failed { ip: string; attempts: number; last: number; users: string[]; location: string | null }
 interface SshData {
   source: { ok: boolean; detail: string };
+  geo: { ok: boolean; detail: string };
   logins: Login[];
   logins24h: number;
   failed24h: number;
@@ -36,12 +37,14 @@ export function Logs() {
               { key: 'ts', label: 'Time' },
               { key: 'user', label: 'User' },
               { key: 'ip', label: 'IP address', mono: true },
+              { key: 'location', label: 'Location' },
               { key: 'key', label: 'Key' },
             ]}
             rows={data.logins.map((l) => ({
               ts: dateTime(l.ts),
               user: l.user,
               ip: l.ip,
+              location: l.location ?? '—',
               key: l.keyName ?? (l.method === 'publickey' ? `${l.keyType ?? ''} ${shortFp(l.fingerprint)}` : l.method),
             }))}
           />
@@ -54,12 +57,14 @@ export function Logs() {
           <DataTable
             columns={[
               { key: 'ip', label: 'IP address', mono: true },
+              { key: 'location', label: 'Location' },
               { key: 'attempts', label: 'Attempts', mono: true, align: 'right' },
               { key: 'last', label: 'Last seen' },
               { key: 'users', label: 'Usernames tried' },
             ]}
             rows={data.topFailed.map((f) => ({
               ip: f.ip,
+              location: f.location ?? '—',
               attempts: f.attempts.toLocaleString('en-US'),
               last: dateTime(f.last),
               users: f.users.slice(0, 5).join(', ') + (f.users.length > 5 ? ` +${f.users.length - 5}` : ''),
@@ -69,6 +74,13 @@ export function Logs() {
           <p className="muted">No failed attempts in the last 7 days.</p>
         )}
       </Card>
+      <p className="muted">
+        {data.geo.ok ? (
+          <>Locations are approximate (city level), from <a href="https://db-ip.com" target="_blank" rel="noreferrer">IP Geolocation by DB-IP</a>, looked up on the server.</>
+        ) : (
+          <>IP locations unavailable: {data.geo.detail}</>
+        )}
+      </p>
     </div>
   );
 }
