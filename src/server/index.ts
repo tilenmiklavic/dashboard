@@ -3,7 +3,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import fs from 'node:fs';
 import { Hono } from 'hono';
 import { basicAuth } from 'hono/basic-auth';
-import { apps, appStatus, containers, startChecks } from './apps.ts';
+import { appStatus, containers, listApps, startChecks } from './apps.ts';
 import { startCollector, hostInfo, latestSample, series, RANGES } from './collector.ts';
 import { db, now, prune } from './db.ts';
 import { startDeploys } from './deploys.ts';
@@ -28,7 +28,7 @@ app.get('/api/overview', async (c) => {
   return c.json({
     host: hostInfo(),
     now: latestSample() ?? null,
-    apps: apps.map((a) => ({
+    apps: listApps().map((a) => ({
       ...appStatus(a),
       containers: docker.list.filter((x) => x.project === a.name),
     })),
@@ -80,7 +80,7 @@ app.get('/api/downtime', (c) => {
   const incidents = db
     .prepare('SELECT id, app, start, end, code, checks FROM incidents ORDER BY start DESC LIMIT 300')
     .all() as { app: string; start: number; end: number | null }[];
-  const summary = apps.map((a) => {
+  const summary = listApps().map((a) => {
     const recent = incidents.filter((i) => i.app === a.name && (i.end ?? now()) >= since);
     const seconds = recent.reduce((s, i) => s + (i.end ?? now()) - Math.max(i.start, since), 0);
     return { app: a.name, incidents30d: recent.length, downtime30d: seconds, ongoing: recent.some((i) => i.end == null) };

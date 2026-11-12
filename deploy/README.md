@@ -43,7 +43,11 @@ The Logs tab shows an approximate location for each IP from DB-IP's free "IP to 
 dashboard downloads it from `download.db-ip.com` into its data volume on first start and refreshes it monthly; lookups
 happen on the server, so no IP is sent anywhere. The database is held in memory (roughly 100+ MB).
 
-## Adding an app to the dashboard
+## Apps on the dashboard
 
-Edit `apps.config.json` (`name` must equal the app's compose project name, which is its folder name in `/opt`) and
-deploy.
+Nothing to do: the dashboard finds every app from the shared proxy's routes (`/opt/proxy/sites/<app>.caddy`, which each
+app's deploy installs) and checks the domain of its first `reverse_proxy` block once a minute. The route file's name is
+the app's name, which is also its compose project, so its containers and deploys are matched automatically.
+
+`apps.config.json` only adjusts that list: an entry overrides a discovered app by name (e.g. a `healthPath`, as for the
+dashboard itself, whose `/` needs a login), an entry with a `url` adds an app that has no route, and `ignore` hides apps.

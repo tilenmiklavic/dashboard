@@ -3,15 +3,64 @@ import http from 'node:http';
 import { db, kvGet, kvSet, now } from './db.ts';
 
 export interface AppConfig {
-  /** Display name, also the docker compose project name (the netcup convention: one project per app). */
+  /** The app's name: its route file name in the proxy, and its docker compose project name (the netcup convention). */
   name: string;
   url: string;
   /** Path to request for the health check, default "/". */
   healthPath?: string;
 }
 
+// Apps are discovered from the shared proxy's routes: every app installs /opt/proxy/sites/<app>.caddy, whose first site
+// block that proxies to a container names the app's domain. apps.config.json only adjusts that list:
+//   { "apps": [{ "name": "dashboard", "healthPath": "/healthz" }, { "name": "extra", "url": "https://…" }],
+//     "ignore": ["some-app"] }
+// An entry overrides the discovered app of the same name (url, healthPath); an entry with a url and no route adds an app.
+const HOST_ROOT = process.env.HOST_ROOT ?? '/';
+const SITES_DIR = process.env.PROXY_SITES_DIR ?? `${HOST_ROOT.replace(/\/$/, '')}/opt/proxy/sites`;
 const CONFIG = process.env.APPS_CONFIG ?? './apps.config.json';
-export const apps: AppConfig[] = JSON.parse(fs.readFileSync(CONFIG, 'utf8')).apps;
+
+interface Config { apps?: Partial<AppConfig>[]; ignore?: string[] }
+const config: Config = fs.existsSync(CONFIG) ? JSON.parse(fs.readFileSync(CONFIG, 'utf8')) : {};
+
+/** The domain of the first site block in a Caddyfile snippet that uses reverse_proxy (skips redirect-only blocks). */
+export function domainFromCaddy(text: string): string | null {
+  const lines = text.split('\n').map((l) => l.replace(/#.*/, '').trim());
+  let site: string | null = null;
+  let depth = 0;
+  for (const line of lines) {
+    if (!line) continue;
+    if (depth === 0 && line.endsWith('{')) site = line.slice(0, -1).trim().split(/[\s,]+/)[0] || null;
+    if (depth >= 1 && site && /^reverse_proxy\b/.test(line)) return site.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
+    depth += (line.match(/{/g) ?? []).length - (line.match(/}/g) ?? []).length;
+    if (depth === 0) site = null;
+  }
+  return null;
+}
+
+export let appsSource = { discovered: false, detail: '' };
+
+export function listApps(): AppConfig[] {
+  const found = new Map<string, AppConfig>();
+  try {
+    for (const f of fs.readdirSync(SITES_DIR).sort()) {
+      if (!f.endsWith('.caddy') || f.startsWith('.')) continue;
+      const domain = domainFromCaddy(fs.readFileSync(`${SITES_DIR}/${f}`, 'utf8'));
+      if (domain && !domain.startsWith('*')) found.set(f.slice(0, -6), { name: f.slice(0, -6), url: `https://${domain}` });
+    }
+    appsSource = { discovered: true, detail: `${found.size} routes in ${SITES_DIR}` };
+  } catch (e) {
+    appsSource = { discovered: false, detail: `cannot read ${SITES_DIR}: ${(e as Error).message}` };
+  }
+  for (const o of config.apps ?? []) {
+    if (!o.name) continue;
+    const base = found.get(o.name);
+    if (base) found.set(o.name, { ...base, ...o } as AppConfig);
+    else if (o.url) found.set(o.name, o as AppConfig);
+  }
+  for (const name of config.ignore ?? []) found.delete(name);
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export const CHECK_INTERVAL_MS = 60_000;
 const SLOW_MS = 1500;
 
@@ -58,7 +107,7 @@ export function backfillIncidents() {
 
 export function startChecks() {
   backfillIncidents();
-  const run = () => Promise.allSettled(apps.map(check));
+  const run = () => Promise.allSettled(listApps().map(check));
   run();
   setInterval(run, CHECK_INTERVAL_MS).unref();
 }
