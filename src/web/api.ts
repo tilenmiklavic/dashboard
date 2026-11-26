@@ -40,3 +40,9 @@ export function usePoll<T>(url: string, intervalMs = 10_000) {
   }, [url, intervalMs]);
   return { data, error };
 }
+
+export interface AppTraffic {
+  name: string; requests: number; errors4xx: number; errors5xx: number; bytes: number; avgMs: number | null;
+  bucketSeconds: number; series: { ts: number; req: number }[];
+}
+export interface TrafficData { source: { ok: boolean; detail: string }; range: string; apps: AppTraffic[] }

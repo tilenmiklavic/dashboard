@@ -43,6 +43,13 @@ The Logs tab shows an approximate location for each IP from DB-IP's free "IP to 
 dashboard downloads it from `download.db-ip.com` into its data volume on first start and refreshes it monthly; lookups
 happen on the server, so no IP is sent anywhere. The database is held in memory (roughly 100+ MB).
 
+## Traffic
+
+Per-app requests, server errors, bytes sent and response times come from the shared proxy's metrics, which it serves at
+`http://proxy-caddy-1:9180/metrics` on the `proxy` network only (set up by `setup-server.sh` in `tilenmiklavic/klin-dom`).
+The dashboard reads them once a minute and keeps per-minute totals for 30 days; no visitor data is involved. Until the
+proxy serves them, the Apps page says traffic is unavailable and why.
+
 ## Apps on the dashboard
 
 Nothing to do: the dashboard finds every app from the shared proxy's routes (`/opt/proxy/sites/<app>.caddy`, which each

@@ -40,6 +40,13 @@ db.exec(`
     UNIQUE (app, source, ref)
   );
   CREATE INDEX IF NOT EXISTS deploys_ts ON deploys (ts);
+
+  -- Per-minute traffic per domain, from the proxy's metrics: requests, 4xx and 5xx responses, response bytes and
+  -- total request time in seconds (all differences between two readings of the proxy's counters).
+  CREATE TABLE IF NOT EXISTS traffic (
+    ts INTEGER, host TEXT, req REAL, c4 REAL, c5 REAL, bytes REAL, dur REAL,
+    PRIMARY KEY (ts, host)
+  );
 `);
 
 export const RETENTION_DAYS = 30;
@@ -60,4 +67,5 @@ export function prune() {
   db.prepare('DELETE FROM checks WHERE ts < ?').run(cutoff);
   db.prepare("DELETE FROM ssh_events WHERE kind = 'failed' AND ts < ?").run(cutoff);
   db.prepare("DELETE FROM ssh_events WHERE kind = 'login' AND ts < ?").run(now() - SSH_LOGIN_RETENTION_DAYS * 86400);
+  db.prepare('DELETE FROM traffic WHERE ts < ?').run(cutoff);
 }

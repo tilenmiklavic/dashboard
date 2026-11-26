@@ -45,3 +45,5 @@ export function ago(ts: number | null | undefined): string {
   const s = Date.now() / 1000 - ts;
   return s < 60 ? 'just now' : `${span(s)} ago`;
 }
+
+export const count = (n: number | null | undefined) => (n == null ? '—' : Math.round(n).toLocaleString('en-US'));

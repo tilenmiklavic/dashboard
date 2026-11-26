@@ -9,6 +9,7 @@ import { db, now, prune } from './db.ts';
 import { startDeploys } from './deploys.ts';
 import { geoSource, locate, startGeo } from './geo.ts';
 import { keyNames, sshSource, startSsh } from './ssh.ts';
+import { startTraffic, TRAFFIC_RANGES, trafficByApp, trafficSource } from './traffic.ts';
 
 const password = process.env.DASHBOARD_PASSWORD;
 if (!password) {
@@ -106,6 +107,12 @@ app.get('/api/deploys', (c) => {
   });
 });
 
+app.get('/api/traffic', (c) => {
+  const range = c.req.query('range') ?? '24h';
+  if (!(range in TRAFFIC_RANGES)) return c.json({ error: 'range must be one of ' + Object.keys(TRAFFIC_RANGES).join(', ') }, 400);
+  return c.json({ source: trafficSource, range, apps: trafficByApp(range) });
+});
+
 // Built frontend (vite build -> dist/web), with SPA fallback.
 const webRoot = './dist/web';
 if (fs.existsSync(webRoot)) {
@@ -117,6 +124,7 @@ startCollector();
 startChecks();
 startSsh();
 startGeo();
+startTraffic();
 startDeploys();
 prune();
 setInterval(prune, 6 * 3600_000).unref();
