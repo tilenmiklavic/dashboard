@@ -126,9 +126,9 @@ export function series(range: string) {
   const since = Math.floor(Date.now() / 1000) - span;
   return db
     .prepare(
-      `SELECT (ts / ?) * ? AS ts, AVG(cpu) AS cpu, AVG(mem_used) AS mem_used, MAX(mem_total) AS mem_total,
+      `SELECT CAST(ts / ? AS INTEGER) * ? AS ts, AVG(cpu) AS cpu, AVG(mem_used) AS mem_used, MAX(mem_total) AS mem_total,
               AVG(load1) AS load1, AVG(rx) AS rx, AVG(tx) AS tx
-       FROM samples WHERE ts >= ? GROUP BY ts / ? ORDER BY ts`,
+       FROM samples WHERE ts >= ? GROUP BY CAST(ts / ? AS INTEGER) ORDER BY ts`,
     )
     .all(bucket, bucket, since, bucket);
 }

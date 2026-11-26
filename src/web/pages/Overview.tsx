@@ -1,6 +1,6 @@
 import { Card, DataTable, Gauge, Legend, LineChart, StatCard, Status } from '../ds.ts';
-import { usePoll, type Overview as OverviewData, type Point } from '../api.ts';
-import { bytes, duration, ms, pct, rate, timeLabel } from '../format.ts';
+import { usePoll, type Overview as OverviewData, type Point, type TrafficData } from '../api.ts';
+import { bytes, count, duration, ms, pct, rate, timeLabel } from '../format.ts';
 
 const SPAN: Record<string, number> = { '1h': 3600, '24h': 86400, '7d': 7 * 86400, '30d': 30 * 86400 };
 
@@ -14,6 +14,7 @@ const tone = (v: number, warn: number, bad: number) => (v >= bad ? 'negative' : 
 
 export function Overview({ data, range }: { data: OverviewData; range: string }) {
   const { data: m } = usePoll<{ points: Point[] }>(`/api/metrics?range=${range}`, 30_000);
+  const { data: traffic } = usePoll<TrafficData>('/api/traffic?range=24h', 60_000);
   const now = data.now;
   const points = m?.points ?? [];
   const span = SPAN[range];
@@ -73,12 +74,14 @@ export function Overview({ data, range }: { data: OverviewData; range: string })
               { key: 'status', label: 'Status' },
               { key: 'ms', label: 'Response', mono: true, align: 'right' },
               { key: 'up', label: 'Uptime 24h', mono: true, align: 'right' },
+              { key: 'req', label: 'Requests 24h', mono: true, align: 'right' },
             ]}
             rows={data.apps.map((a) => ({
               app: a.name,
               status: <Status status={a.status} />,
               ms: ms(a.ms),
               up: a.uptime24h == null ? '—' : pct(a.uptime24h * 100, 2),
+              req: traffic?.source.ok ? count(traffic.apps.find((t) => t.name === a.name)?.requests) : '—',
             }))}
           />
         </Card>
